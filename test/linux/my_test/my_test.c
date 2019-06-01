@@ -47,26 +47,34 @@ void simpletest(char *ifname)
   {
     printf("ec_init on %s succeeded.\n", ifname);
     /* find and auto-config slaves */
+    osal_usleep(3000*1000);
 
     if ( ec_config_init(FALSE) > 0 )
     {
       printf("%d slaves found and configured.\n", ec_slavecount);
+      /*
+        setting PDO mapping here?
+       */
 
+      osal_usleep(1000*1000);
       ec_config_map(&IOmap);
 
+      osal_usleep(2000*1000);
       ec_configdc();
 
+      osal_usleep(1000*1000);
       printf("Slaves mapped, state to SAFE_OP.\n");
       /* wait for all slaves to reach SAFE_OP state */
       ec_statecheck(0, EC_STATE_SAFE_OP,  EC_TIMEOUTSTATE * 4);
 
+      printf("Obits: %d, Ibits: %d\n", ec_slave[0].Obits, ec_slave[0].Ibits);
       oloop = ec_slave[0].Obytes;
       if ((oloop == 0) && (ec_slave[0].Obits > 0)) oloop = 1;
-      if (oloop > 8) oloop = 8;
+      //if (oloop > 8) oloop = 8;
 
       iloop = ec_slave[0].Ibytes;
       if ((iloop == 0) && (ec_slave[0].Ibits > 0)) iloop = 1;
-      if (iloop > 8) iloop = 8;
+      //if (iloop > 8) iloop = 8;
 
       printf("segments : %d : %d %d %d %d\n",
              ec_group[0].nsegments,
@@ -95,6 +103,7 @@ void simpletest(char *ifname)
       }
       while (chk-- && (ec_slave[0].state != EC_STATE_OPERATIONAL));
 
+      osal_usleep(2500*1000);
       /* */
       if (ec_slave[0].state == EC_STATE_OPERATIONAL )  {
         printf("Operational state reached for all slaves.\n");
@@ -102,6 +111,7 @@ void simpletest(char *ifname)
 
         /* cyclic loop */
         for(i = 1; i <= 10000; i++) {
+          // set proceess output ????
           ec_send_processdata();
           wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
