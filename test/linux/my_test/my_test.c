@@ -1,12 +1,11 @@
 /** \file
- * \brief Example code for Simple Open EtherCAT master
+ * copied from Example code for Simple Open EtherCAT master
  *
- * Usage : simple_test [ifname1]
+ * Usage : my_test [ifname1]
  * ifname is NIC interface, f.e. eth0
  *
- * This is a minimal test.
+ * Elmo test
  *
- * (c)Arthur Ketels 2010 - 2011
  */
 
 #include <stdio.h>
@@ -51,10 +50,9 @@ void simpletest(char *ifname)
     if ( ec_config_init(FALSE) > 0 )
     {
       printf("%d slaves found and configured.\n", ec_slavecount);
-      /*
-        setting PDO mapping here?
-       */
+
       int cnt = 1;
+      // set control mode 0x6060 <=: 0x08
       while(1)
       {
         int ret = 0;
@@ -63,6 +61,8 @@ void simpletest(char *ifname)
         //printf("1 ret = %X\n", ret);
         if (ret == 1) break;
       }
+      // set intrepolation time period 0x60c2:01 <=: 0x05 ( 5 ms )
+      // servo may stop if there is no command within this time period. (just guess)
       while(1)
       {
         int ret = 0;
@@ -73,7 +73,10 @@ void simpletest(char *ifname)
         //printf("1 ret = %X\n", ret);
         if (ret == 1) break;
       }
-      //
+
+      /*
+        setting PDO mapping
+       */
       while(1)
       {
         int ret = 0;
@@ -225,13 +228,13 @@ void simpletest(char *ifname)
       }
 #endif
 
-      osal_usleep(200*1000);
+      osal_usleep(200*1000);// just for debug
       ec_config_map(&IOmap);
 
-      osal_usleep(300*1000);
+      osal_usleep(300*1000);// just for debug
       ec_configdc();
 
-      osal_usleep(100*1000);
+      osal_usleep(100*1000);// just for debug
       printf("Slaves mapped, state to SAFE_OP.\n");
       /* wait for all slaves to reach SAFE_OP state */
       ec_statecheck(0, EC_STATE_SAFE_OP,  EC_TIMEOUTSTATE * 4);
@@ -272,13 +275,14 @@ void simpletest(char *ifname)
       }
       while (chk-- && (ec_slave[0].state != EC_STATE_OPERATIONAL));
 
-      osal_usleep(250*1000);
+      osal_usleep(250*1000);// just for debug
       /* */
       if (ec_slave[0].state == EC_STATE_OPERATIONAL )  {
         printf("Operational state reached for all slaves.\n");
         inOP = TRUE;
 
         int prev_pos = 0x7FFFFFFF;
+
         /* cyclic loop */
         for(i = 1; i <= 100000; i++) {
           // set proceess output ????
@@ -287,14 +291,7 @@ void simpletest(char *ifname)
           tx_buf[1] = 0x00;
           tx_buf[2] = 0x08;
           tx_buf[3] = 0x00;
-          // 4,5 torque
-          //tx_buf[4] = ;
-          //tx_buf[5] = ;
-          //
-          //tx_buf[6] = ;
-          //tx_buf[7] = ;
-          //tx_buf[8] = ;
-          //tx_buf[9] = ;
+
           unsigned char *rx_buf = (unsigned char *)(ec_slave[0].inputs);
           unsigned char r2 = (rx_buf[0] & 0x70) >> 4; // 5(quick stop, switch on disabled) or 3(always)
           unsigned char r1 = (rx_buf[0] & 0x0F);      // 7(op enable), 3(always)
@@ -304,11 +301,10 @@ void simpletest(char *ifname)
           //unsigned char r3 = (rx_buf[1] | 0x0F);      // ... ignored
 
           //if (rx_buf[0] == 0xB7 && rx_buf[1] == 0x12) {
-          //if (r1 == 7 && r2 == 5 && r4 == 1) {
           if (r2 == 3 && r1 == 7) {
             // servo on
             tx_buf[0] = 0x0F;
-            // copy torque
+            // set reference torque from actual torque
             tx_buf[4] = rx_buf[8];
             tx_buf[5] = rx_buf[9];
           //} else if (rx_buf[0] == 0xB3 && rx_buf[1] == 0x02) {
@@ -316,48 +312,36 @@ void simpletest(char *ifname)
             //
             tx_buf[0] = 0x07;
             if (i > 1000) {
+              // servo on
               tx_buf[0] = 0x0F;
             } else {
-              //int *tx_pos = (int *)(tx_buf+6);
-              //int *rx_pos = (int *)(rx_buf+4);
-              //short xx = *tx_pos - *rx_pos;
-              // copy position
+              // set reference position from actual position
               tx_buf[6] = rx_buf[4];
               tx_buf[7] = rx_buf[5];
               tx_buf[8] = rx_buf[6];
               tx_buf[9] = rx_buf[7];
             }
-            //printf("tx: %d, rx: %d\n", *tx_pos, *rx_pos);
           //} else if (rx_buf[0] == 0xB1 && rx_buf[1] == 0x02) {
           } else if (r2 == 3 && r1 == 1) {
-            //
-            //int *tx_pos = (int *)(tx_buf+6);
-            //int *rx_pos = (int *)(rx_buf+4);
-            //printf("tx: %d, rx: %d\n", *tx_pos, *rx_pos);
             tx_buf[0] = 0x07;
-            // copy position
+            // set reference position from actual position
             tx_buf[6] = rx_buf[4];
             tx_buf[7] = rx_buf[5];
             tx_buf[8] = rx_buf[6];
             tx_buf[9] = rx_buf[7];
           //} else if (rx_buf[0] == 0xD2 && rx_buf[1] == 0x02) {
           } else if (r2 == 5 && r1 == 2) {
-            //
-            //int *tx_pos = (int *)(tx_buf+6);
-            //int *rx_pos = (int *)(rx_buf+4);
-            //printf("tx: %d, rx: %d\n", *tx_pos, *rx_pos);
             tx_buf[0] = 0x06;
-            // copy position
+            // set reference position from actual position
             tx_buf[6] = rx_buf[4];
             tx_buf[7] = rx_buf[5];
             tx_buf[8] = rx_buf[6];
             tx_buf[9] = rx_buf[7];
-            // tx_buf[4] = ;
-            // tx_buf[5] = ;
           } else {
             // printf("%X %X ", rx_buf[0], rx_buf[1]);
           }
-          //
+
+          // calculate reference velocity and set it
           if (prev_pos != 0x7FFFFFFF) {
             int *tx_pos = (int *)(tx_buf+6);
             int mv = (*tx_pos - prev_pos)*500;
@@ -368,13 +352,14 @@ void simpletest(char *ifname)
             int *tx_pos = (int *)(tx_buf+6);
             prev_pos = *tx_pos;
           }
-          //
+
           ec_send_processdata();
           wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
           if(wkc >= expectedWKC)
           {
 #if 0
+            // Debug print
             //printf("%X %X / %d %d", rr0, rr1, r2, r1);
             printf("Processdata cycle %4d, WKC %d , O:", i, wkc);
 
@@ -392,8 +377,8 @@ void simpletest(char *ifname)
             needlf = TRUE;
           }
 
-          //osal_usleep(5 * 1000);
-          osal_usleep(2 * 1000);
+          //osal_usleep(5 * 1000); // sleep 5ms
+          osal_usleep(2 * 1000);// sleep 2ms
         }
         inOP = FALSE;
       } /* if (ec_slave[0].state == EC_STATE_OPERATIONAL )  { */
