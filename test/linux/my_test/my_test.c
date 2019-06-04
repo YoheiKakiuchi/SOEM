@@ -36,7 +36,7 @@ ethercatmain.h:439:extern int64       ec_DCtime;
 
 void simpletest(char *ifname)
 {
-  int i, j, oloop, iloop, chk;
+  int i, oloop, iloop, chk;
   needlf = FALSE;
   inOP = FALSE;
 
@@ -47,7 +47,6 @@ void simpletest(char *ifname)
   {
     printf("ec_init on %s succeeded.\n", ifname);
     /* find and auto-config slaves */
-    osal_usleep(3000*1000);
 
     if ( ec_config_init(FALSE) > 0 )
     {
@@ -55,14 +54,184 @@ void simpletest(char *ifname)
       /*
         setting PDO mapping here?
        */
+      int cnt = 1;
+      while(1)
+      {
+        int ret = 0;
+        uint8_t num_pdo = 0x08;
+        ret += ec_SDOwrite(cnt, 0x6060, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        //printf("1 ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        //uint8_t num_pdo = 0x02;
+        uint8_t num_pdo = 0x05;
+        // 0x60c2 01 <=: 0x02 (interpolation time period ???)
+        ret += ec_SDOwrite(cnt, 0x60C2, 0x01, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        //printf("1 ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      //
+      while(1)
+      {
+        int ret = 0;
+        uint16_t num_pdo = 0;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      //
+      while(1)
+      {
+        int ret = 0;
+        uint16_t num_pdo = 0;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+#if 1 // for rxpdo
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x160A;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x01, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x160B;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x02, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x160C;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x03, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x160F;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x04, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1619;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x05, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x161c;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x06, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t num_pdo = 6;
+        ret += ec_SDOwrite(cnt, 0x1c12, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+#endif
 
-      osal_usleep(1000*1000);
+#if 1 // for txpdo
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A0A;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x01, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A0B;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x02, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A0E;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x03, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A13;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x04, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A14;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x05, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A15;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x06, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A17;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x07, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t idx = 0x1A1C;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x08, FALSE, sizeof(idx), &idx, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+      while(1)
+      {
+        int ret = 0;
+        uint16_t num_pdo = 8;
+        ret += ec_SDOwrite(cnt, 0x1c13, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        //printf("ret = %X\n", ret);
+        if (ret == 1) break;
+      }
+#endif
+
+      osal_usleep(200*1000);
       ec_config_map(&IOmap);
 
-      osal_usleep(2000*1000);
+      osal_usleep(300*1000);
       ec_configdc();
 
-      osal_usleep(1000*1000);
+      osal_usleep(100*1000);
       printf("Slaves mapped, state to SAFE_OP.\n");
       /* wait for all slaves to reach SAFE_OP state */
       ec_statecheck(0, EC_STATE_SAFE_OP,  EC_TIMEOUTSTATE * 4);
@@ -103,22 +272,113 @@ void simpletest(char *ifname)
       }
       while (chk-- && (ec_slave[0].state != EC_STATE_OPERATIONAL));
 
-      osal_usleep(2500*1000);
+      osal_usleep(250*1000);
       /* */
       if (ec_slave[0].state == EC_STATE_OPERATIONAL )  {
         printf("Operational state reached for all slaves.\n");
         inOP = TRUE;
 
+        int prev_pos = 0x7FFFFFFF;
         /* cyclic loop */
-        for(i = 1; i <= 10000; i++) {
+        for(i = 1; i <= 100000; i++) {
           // set proceess output ????
+          unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
+          tx_buf[0] = 0x06;
+          tx_buf[1] = 0x00;
+          tx_buf[2] = 0x08;
+          tx_buf[3] = 0x00;
+          // 4,5 torque
+          //tx_buf[4] = ;
+          //tx_buf[5] = ;
+          //
+          //tx_buf[6] = ;
+          //tx_buf[7] = ;
+          //tx_buf[8] = ;
+          //tx_buf[9] = ;
+          unsigned char *rx_buf = (unsigned char *)(ec_slave[0].inputs);
+          unsigned char r2 = (rx_buf[0] & 0x70) >> 4; // 5(quick stop, switch on disabled) or 3(always)
+          unsigned char r1 = (rx_buf[0] & 0x0F);      // 7(op enable), 3(always)
+          //unsigned char rr0 = rx_buf[0];
+          //unsigned char rr1 = rx_buf[1];
+          //unsigned char r4 = (rx_buf[1] | 0x70) >> 4; // 1 or 0(always)
+          //unsigned char r3 = (rx_buf[1] | 0x0F);      // ... ignored
+
+          //if (rx_buf[0] == 0xB7 && rx_buf[1] == 0x12) {
+          //if (r1 == 7 && r2 == 5 && r4 == 1) {
+          if (r2 == 3 && r1 == 7) {
+            // servo on
+            tx_buf[0] = 0x0F;
+            // copy torque
+            tx_buf[4] = rx_buf[8];
+            tx_buf[5] = rx_buf[9];
+          //} else if (rx_buf[0] == 0xB3 && rx_buf[1] == 0x02) {
+          } else if (r2 == 3 && r1 == 3) {
+            //
+            tx_buf[0] = 0x07;
+            if (i > 1000) {
+              tx_buf[0] = 0x0F;
+            } else {
+              //int *tx_pos = (int *)(tx_buf+6);
+              //int *rx_pos = (int *)(rx_buf+4);
+              //short xx = *tx_pos - *rx_pos;
+              // copy position
+              tx_buf[6] = rx_buf[4];
+              tx_buf[7] = rx_buf[5];
+              tx_buf[8] = rx_buf[6];
+              tx_buf[9] = rx_buf[7];
+            }
+            //printf("tx: %d, rx: %d\n", *tx_pos, *rx_pos);
+          //} else if (rx_buf[0] == 0xB1 && rx_buf[1] == 0x02) {
+          } else if (r2 == 3 && r1 == 1) {
+            //
+            //int *tx_pos = (int *)(tx_buf+6);
+            //int *rx_pos = (int *)(rx_buf+4);
+            //printf("tx: %d, rx: %d\n", *tx_pos, *rx_pos);
+            tx_buf[0] = 0x07;
+            // copy position
+            tx_buf[6] = rx_buf[4];
+            tx_buf[7] = rx_buf[5];
+            tx_buf[8] = rx_buf[6];
+            tx_buf[9] = rx_buf[7];
+          //} else if (rx_buf[0] == 0xD2 && rx_buf[1] == 0x02) {
+          } else if (r2 == 5 && r1 == 2) {
+            //
+            //int *tx_pos = (int *)(tx_buf+6);
+            //int *rx_pos = (int *)(rx_buf+4);
+            //printf("tx: %d, rx: %d\n", *tx_pos, *rx_pos);
+            tx_buf[0] = 0x06;
+            // copy position
+            tx_buf[6] = rx_buf[4];
+            tx_buf[7] = rx_buf[5];
+            tx_buf[8] = rx_buf[6];
+            tx_buf[9] = rx_buf[7];
+            // tx_buf[4] = ;
+            // tx_buf[5] = ;
+          } else {
+            // printf("%X %X ", rx_buf[0], rx_buf[1]);
+          }
+          //
+          if (prev_pos != 0x7FFFFFFF) {
+            int *tx_pos = (int *)(tx_buf+6);
+            int mv = (*tx_pos - prev_pos)*500;
+            int *tx_vel = (int *)(tx_buf+12);
+            *tx_vel = mv;
+            prev_pos = *tx_pos;
+          } else {
+            int *tx_pos = (int *)(tx_buf+6);
+            prev_pos = *tx_pos;
+          }
+          //
           ec_send_processdata();
           wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
           if(wkc >= expectedWKC)
           {
+#if 0
+            //printf("%X %X / %d %d", rr0, rr1, r2, r1);
             printf("Processdata cycle %4d, WKC %d , O:", i, wkc);
 
+            int j
             for(j = 0 ; j < oloop; j++) {
               printf(" %2.2x", *(ec_slave[0].outputs + j));
             }
@@ -127,10 +387,13 @@ void simpletest(char *ifname)
             for(j = 0 ; j < iloop; j++) {
               printf(" %2.2x", *(ec_slave[0].inputs + j));
             }
-            printf(" T:%"PRId64"\r",ec_DCtime);
+            printf(" T:%"PRId64"\n",ec_DCtime);
+#endif
             needlf = TRUE;
           }
-          osal_usleep(5000);
+
+          //osal_usleep(5 * 1000);
+          osal_usleep(2 * 1000);
         }
         inOP = FALSE;
       } /* if (ec_slave[0].state == EC_STATE_OPERATIONAL )  { */
