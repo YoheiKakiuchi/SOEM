@@ -119,7 +119,8 @@ ecx_contextt  ecx_context = {
     &ec_SM,             // .eepSM         =
     &ec_FMMU,           // .eepFMMU       =
     NULL,               // .FOEhook()
-    NULL                // .EOEhook()
+    NULL,               // .EOEhook()
+    0                   // .manualstatechange
 };
 #endif
 
@@ -1097,7 +1098,8 @@ int ecx_mbxreceive(ecx_contextt *context, uint16 slave, ec_mbxbuft *mbx, int tim
       }
       else /* no read mailbox available */
       {
-          wkc = 0;
+         if (wkc > 0)
+            wkc = EC_TIMEOUT;
       }
    }
 
@@ -1689,6 +1691,7 @@ static void ecx_clearindex(ecx_contextt *context)  {
  * In order to recombine the slave response, a stack is used.
  * @param[in]  context        = context struct
  * @param[in]  group          = group number
+ * @param[in]  use_overlap_io = flag if overlapped iomap is used
  * @return >0 if processdata is transmitted.
  */
 static int ecx_main_send_processdata(ecx_contextt *context, uint8 group, boolean use_overlap_io)
@@ -2354,7 +2357,6 @@ int ec_send_processdata_group(uint8 group)
 * In contrast to the base LRW function this function is non-blocking.
 * If the processdata does not fit in one datagram, multiple are used.
 * In order to recombine the slave response, a stack is used.
-* @param[in]  context        = context struct
 * @param[in]  group          = group number
 * @return >0 if processdata is transmitted.
 * @see ecx_send_overlap_processdata_group
