@@ -25,6 +25,8 @@ volatile int wkc;
 boolean inOP;
 uint8 currentgroup = 0;
 
+boolean overlapped = FALSE;
+
 void simpletest(char *ifname)
 {
     int i, j, oloop, iloop, chk;
@@ -44,7 +46,11 @@ void simpletest(char *ifname)
       {
          printf("%d slaves found and configured.\n",ec_slavecount);
 
-         ec_config_map(&IOmap);
+         if (overlapped) {
+           ec_config_overlap_map(&IOmap);
+         } else {
+           ec_config_map(&IOmap);
+         }
 
          ec_configdc();
 
@@ -86,7 +92,11 @@ void simpletest(char *ifname)
                 /* cyclic loop */
             for(i = 1; i <= 10000; i++)
             {
-               ec_send_processdata();
+               if (overlapped) {
+                   ec_send_overlap_processdata();
+               } else {
+                   ec_send_processdata();
+               }
                wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
                     if(wkc >= expectedWKC)
@@ -101,7 +111,12 @@ void simpletest(char *ifname)
                         printf(" I:");
                         for(j = 0 ; j < iloop; j++)
                         {
+                          if (overlapped) {
+                            //printf(" %2.2x", *(ec_slave[0].outputs + j));
                             printf(" %2.2x", *(ec_slave[0].inputs + j));
+                          } else {
+                            printf(" %2.2x", *(ec_slave[0].inputs + j));
+                          }
                         }
                         printf(" T:%"PRId64"\r",ec_DCtime);
                         needlf = TRUE;
@@ -226,6 +241,10 @@ int main(int argc, char *argv[])
 
    if (argc > 1)
    {
+     if (argc > 2) {
+       overlapped = TRUE;
+       printf("overlaaaaaaaaaaaaaaaaaaaaaped\n");
+     }
       /* create thread to handle slave error handling in OP */
 //      pthread_create( &thread1, NULL, (void *) &ecatcheck, (void*) &ctime);
       osal_thread_create(&thread1, 128000, &ecatcheck, (void*) &ctime);
