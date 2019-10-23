@@ -156,18 +156,36 @@ void simpletest(char *ifname)
         if (ret == 1) break;
       }
       // set intrepolation time period 0x60c2:01 <=: 0x05 ( 5 ms )
-      // servo may stop if there is no command within this time period. (just guess)
+      // servo may stop if there is no command within this time period. (just guess??)
       while(1)
       {
         int ret = 0;
-        //uint8_t num_pdo = 0x02;
-        uint8_t num_pdo = 0x05;
+        uint8_t num_pdo = 0x01;
         // 0x60c2 01 <=: 0x02 (interpolation time period ???)
         ret += ec_SDOwrite(cnt, 0x60C2, 0x01, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
       }
-
-      //int ec_SDOread (uint16 slave, uint16 index, uint8 subindex, boolean CA, int *psize, void *p, int timeout);
+#if 0
+      while(1)
+      {
+        int ret = 0;
+        int8_t num_pdo = -4;
+        // 0x60c2 01 <=: 0x02 (interpolation time period ???)
+        ret += ec_SDOwrite(cnt, 0x60C2, 0x02, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        if (ret == 1) break;
+      }
+#endif
+      while(1)
+      {
+        int ret = 0;
+        int psize;
+        int val;
+        ret += ec_SDOread (cnt, 0x60C2, 0x02, FALSE, &psize, &val, EC_TIMEOUTRXM);
+        if (ret == 1) {
+          printf("0x602C:2 -> %d\n", val);
+          break;
+        }
+      }
       //int ec_SDOwrite(uint16 Slave, uint16 Index, uint8 SubIndex, boolean CA, int  psize, void *p, int Timeout);
 
       /*
@@ -287,7 +305,7 @@ void simpletest(char *ifname)
 
         int prev_pos = 0x7FFFFFFF;
 
-        realtime_task::Context rt_context(1000);
+        realtime_task::Context rt_context(REALTIME_PRIO_MAX, 1000); //
         /* cyclic loop */
         for(i = 1; i <= 200000; i++) { //// IN LOOP
           // set proceess output ????
