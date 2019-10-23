@@ -13,6 +13,8 @@
 #include <inttypes.h>
 #include <pthread.h>
 
+#include "realtime_task.h"
+
 //kbhit
 //#include <stdio.h>
 #include <termios.h>
@@ -45,7 +47,9 @@ int kbhit(void) {
 }
 // end of kbhit
 
+extern "C" {
 #include "ethercat.h"
+}
 
 #define EC_TIMEOUTMON 500
 
@@ -56,6 +60,9 @@ boolean needlf;
 volatile int wkc;
 boolean inOP;
 uint8 currentgroup = 0;
+
+// realtime
+double rt_jitter;
 
 // kbhit
 int kbd_input;
@@ -140,16 +147,14 @@ void simpletest(char *ifname)
       printf("%d slaves found and configured.\n", ec_slavecount);
 
       int cnt = 1;
-      // set control mode 0x6060 <=: 0x08
+      // set control mode 0x6060 <=: 0x08 (cyclic synchronous position)
       while(1)
       {
         int ret = 0;
         uint8_t num_pdo = 0x08;
-        // TODO: description
         ret += ec_SDOwrite(cnt, 0x6060, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
       }
-
       // set intrepolation time period 0x60c2:01 <=: 0x05 ( 5 ms )
       // servo may stop if there is no command within this time period. (just guess)
       while(1)
@@ -161,6 +166,9 @@ void simpletest(char *ifname)
         ret += ec_SDOwrite(cnt, 0x60C2, 0x01, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
       }
+
+      //int ec_SDOread (uint16 slave, uint16 index, uint8 subindex, boolean CA, int *psize, void *p, int timeout);
+      //int ec_SDOwrite(uint16 Slave, uint16 Index, uint8 SubIndex, boolean CA, int  psize, void *p, int Timeout);
 
       /*
         setting PDO mapping
@@ -279,8 +287,9 @@ void simpletest(char *ifname)
 
         int prev_pos = 0x7FFFFFFF;
 
+        realtime_task::Context rt_context(1000);
         /* cyclic loop */
-        for(i = 1; i <= 100000; i++) { //// IN LOOP
+        for(i = 1; i <= 200000; i++) { //// IN LOOP
           // set proceess output ????
           unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
           tx_buf[0] = 0x06; //
@@ -419,7 +428,12 @@ void simpletest(char *ifname)
           }
 
           //osal_usleep(5 * 1000); // sleep 5ms
-          osal_usleep(1 * 1000);// sleep 2ms
+          //osal_usleep(1 * 1000);// sleep 2ms
+          rt_jitter = rt_context.stat.get_norm();
+          if( i % 3000 == 0 ) {
+            rt_context.stat.reset();
+          }
+          rt_context.wait();
         }  //// IN LOOP(end);
         inOP = FALSE;
       } /* if (ec_slave[0].state == EC_STATE_OPERATIONAL )  { */
@@ -550,6 +564,7 @@ void *kbd_func (void *ptr) {
       //kbd_input = -1;
       //}
     }
+    printf("jitter: %6.2f\r", rt_jitter);
   }
 
   return 0;
@@ -564,11 +579,12 @@ int main(int argc, char *argv[])
    {
       /* create thread to handle slave error handling in OP */
 //      pthread_create( &thread1, NULL, (void *) &ecatcheck, (void*) &ctime);
-      osal_thread_create(&thread1, 128000, &ecatcheck, (void*) &ctime);
-      pthread_t pth;
-      pthread_create(&pth, NULL, &kbd_func, NULL);
-      /* start cyclic part */
-      simpletest(argv[1]);
+
+     osal_thread_create(&thread1, 128000, (void *) &ecatcheck, (void*) &ctime);
+     pthread_t pth;
+     pthread_create(&pth, NULL, &kbd_func, NULL);
+     /* start cyclic part */
+     simpletest(argv[1]);
    }
    else
    {
