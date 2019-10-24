@@ -147,46 +147,48 @@ void simpletest(char *ifname)
       printf("%d slaves found and configured.\n", ec_slavecount);
 
       int cnt = 1;
-      // set control mode 0x6060 <=: 0x08 (cyclic synchronous position)
+
       while(1)
       {
         int ret = 0;
-        uint8_t num_pdo = 0x08;
+        //uint8_t num_pdo = 0x08; // set control mode 0x6060 <=: 0x08 (cyclic synchronous position)
+        uint8_t num_pdo = 0x0a;  // set control mode 0x6060 <=: 0x0a (cyclic synchronous torque)
         ret += ec_SDOwrite(cnt, 0x6060, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
       }
-      // set intrepolation time period 0x60c2:01 <=: 0x05 ( 5 ms )
+
       // servo may stop if there is no command within this time period. (just guess??)
       while(1)
       {
         int ret = 0;
-        uint8_t num_pdo = 0x01;
-        // 0x60c2 01 <=: 0x02 (interpolation time period ???)
+        // set intrepolation time period 0x60c2:01 <=: 10
+        // set intrepolation time period 0x60c2:02 <=: -4
+        //   time period ==> 10*10^-4 sec
+        uint8_t num_pdo = 10;
         ret += ec_SDOwrite(cnt, 0x60C2, 0x01, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
       }
-#if 0
       while(1)
       {
         int ret = 0;
         int8_t num_pdo = -4;
-        // 0x60c2 01 <=: 0x02 (interpolation time period ???)
-        ret += ec_SDOwrite(cnt, 0x60C2, 0x02, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
+        ret += ec_SDOwrite(cnt, 0x60C2, 0x02, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTTXM);
         if (ret == 1) break;
       }
-#endif
+#if 1
+      printf("start-read\n");
       while(1)
       {
         int ret = 0;
-        int psize;
-        int val;
+        int psize = 1;
+        char val;
         ret += ec_SDOread (cnt, 0x60C2, 0x02, FALSE, &psize, &val, EC_TIMEOUTRXM);
         if (ret == 1) {
           printf("0x602C:2 -> %d\n", val);
           break;
         }
       }
-      //int ec_SDOwrite(uint16 Slave, uint16 Index, uint8 SubIndex, boolean CA, int  psize, void *p, int Timeout);
+#endif
 
       /*
         setting PDO mapping
@@ -205,7 +207,7 @@ void simpletest(char *ifname)
       }
 
       // setting rxpdo (device receive)
-      uint16_t rxpdo_lst[] = {0x160A, 0x160B, 0x160C, 0x160F, 0x1619, 0x161C};
+      uint16_t rxpdo_lst[] = {0x160A, 0x160B, 0x160C, 0x160F, 0x161C, 0x1619 };
       int rxpdo_num = sizeof(rxpdo_lst) / sizeof(uint16_t);
       for (int idx = 0; idx < rxpdo_num; idx++) {
         uint16_t pdo_idx = rxpdo_lst[idx];
@@ -303,17 +305,18 @@ void simpletest(char *ifname)
         printf("Operational state reached for all slaves.\n");
         inOP = TRUE;
 
-        int prev_pos = 0x7FFFFFFF;
-
-        realtime_task::Context rt_context(REALTIME_PRIO_MAX, 1000); //
+        int prev_pos    = 0x7FFFFFFF;
+        int initial_pos = 0x7FFFFFFF;
+        realtime_task::Context rt_context(REALTIME_PRIO_MAX, 500); //
         /* cyclic loop */
         for(i = 1; i <= 200000; i++) { //// IN LOOP
           // set proceess output ????
           unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
-          tx_buf[0] = 0x06; //
-          tx_buf[1] = 0x00; //
-          tx_buf[2] = 0x08; //
-          tx_buf[3] = 0x00; //
+          tx_buf[0] = 0x06; // control word
+          tx_buf[1] = 0x00; // control word
+          //tx_buf[2] = 0x08; // mode of operation (position)
+          tx_buf[2] = 0x0a; // mode of operation (torque)
+          tx_buf[3] = 0x00; // ()
 
           unsigned char *rx_buf = (unsigned char *)(ec_slave[0].inputs);
           unsigned char r2 = (rx_buf[0] & 0x70) >> 4; // 5(quick stop, switch on disabled) or 3(always)
@@ -340,16 +343,19 @@ void simpletest(char *ifname)
             // servo on
             tx_buf[0] = 0x0F; // 1 1 1 1
             // set reference torque from actual torque
-            tx_buf[4] = rx_buf[8];
-            tx_buf[5] = rx_buf[9];
+            //tx_buf[4] = rx_buf[8]; // target torque
+            //tx_buf[5] = rx_buf[9]; // target torque
+
 
             if (kbd_input == 'a' || kbd_input == 'A') {
               int *tx_addr = (int *)(tx_buf+6);
               int rx_pos = *(int *)(rx_buf+4);
               if (kbd_input == 'a') {
-                rx_pos +=  20000;
+                     rx_pos += 20000;
+                initial_pos += 20000;
               } else {
-                rx_pos += 100000;
+                     rx_pos += 100000;
+                initial_pos += 100000;
               }
               *tx_addr = rx_pos;
               kbd_input = -1;
@@ -360,24 +366,29 @@ void simpletest(char *ifname)
               int *tx_addr = (int *)(tx_buf+6);
               int rx_pos = *(int *)(rx_buf+4);
               if (kbd_input == 'd') {
-                rx_pos -=  20000;
+                     rx_pos -= 20000;
+                initial_pos -= 20000;
               } else {
-                rx_pos -= 100000;
+                     rx_pos -= 100000;
+                initial_pos -= 100000;
               }
               *tx_addr = rx_pos;
               kbd_input = -1;
               short analog_val = *(short *)(rx_buf + 26);
               printf("d: %d -> %d\n", rx_pos, analog_val);
             }
-
+#if 0
             {
-              short analog_val = *(short *)(rx_buf + 26);
-              int *tx_addr = (int *)(tx_buf+6);
-              int rx_pos = *(int *)(rx_buf+4);
+              int analog_val = (int) ( *(short *)(rx_buf + 26));
+              int *tx_addr =  (int *)(tx_buf+6);
+              int rx_pos   = *(int *)(rx_buf+4);
 
-              rx_pos -= 200*analog_val;
+               rx_pos -= (200 * analog_val);
               *tx_addr = rx_pos;
+
+              //printf("tq: %d -> %d\n", rx_pos, analog_val);
             }
+#endif
           } else if (r2 == 3 && r1 == 3) { // not in operation
             //
             tx_buf[0] = 0x07; // 0 1 1 1
@@ -411,19 +422,37 @@ void simpletest(char *ifname)
 
           // calculate reference velocity and set it
           if (prev_pos != 0x7FFFFFFF) {
-            int *tx_pos = (int *)(tx_buf+6);
-            int mv = (*tx_pos - prev_pos)*500;
+            int rx_pos   = *(int *)(rx_buf+4);
+            int mv = (rx_pos - prev_pos)*500;
             int *tx_vel = (int *)(tx_buf+12);
             *tx_vel = mv; // write velocity
-            prev_pos = *tx_pos;
+            short *tx_tq = (short *)(tx_buf + 4);
+
+#if 0       // position control by torque feedback
+            prev_pos = rx_pos;
+            short  diff = -(rx_pos - initial_pos) / 10;
+
+            printf("i:%d, c:%d -> %d\n", initial_pos, rx_pos, diff);
+
+            *tx_tq = diff;
+#endif
+            // analog value to torque command
+            short analog_val = *(short *)(rx_buf + 26);
+
+            *tx_tq = -24*analog_val;
+            //printf("i:%d, c:%d -> %d\n", initial_pos, rx_pos, analog_val);
           } else {
-            int *tx_pos = (int *)(tx_buf+6);
-            prev_pos = *tx_pos;
+            int rx_pos   = *(int *)(rx_buf+4);
+
+            initial_pos = prev_pos = rx_pos;
           }
 
+          // send data
           ec_send_processdata();
+          // receive data
           wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
+          // error check
           if(wkc >= expectedWKC)
           {
 #if 0
@@ -443,16 +472,16 @@ void simpletest(char *ifname)
             printf(" T:%"PRId64"\n",ec_DCtime);
 #endif
             needlf = TRUE;
+            // error ??
           }
 
-          //osal_usleep(5 * 1000); // sleep 5ms
-          //osal_usleep(1 * 1000);// sleep 2ms
           rt_jitter = rt_context.stat.get_norm();
           if( i % 3000 == 0 ) {
             rt_context.stat.reset();
           }
           rt_context.wait();
         }  //// IN LOOP(end);
+
         inOP = FALSE;
       } /* if (ec_slave[0].state == EC_STATE_OPERATIONAL )  { */
       else
@@ -582,7 +611,7 @@ void *kbd_func (void *ptr) {
       //kbd_input = -1;
       //}
     }
-    printf("jitter: %6.2f\r", rt_jitter);
+    //printf("jitter: %6.2f\r", rt_jitter);
   }
 
   return 0;
@@ -597,10 +626,9 @@ int main(int argc, char *argv[])
    {
       /* create thread to handle slave error handling in OP */
 //      pthread_create( &thread1, NULL, (void *) &ecatcheck, (void*) &ctime);
-
      osal_thread_create(&thread1, 128000, (void *) &ecatcheck, (void*) &ctime);
-     pthread_t pth;
-     pthread_create(&pth, NULL, &kbd_func, NULL);
+     //pthread_t pth;
+     //pthread_create(&pth, NULL, &kbd_func, NULL);
      /* start cyclic part */
      simpletest(argv[1]);
    }
