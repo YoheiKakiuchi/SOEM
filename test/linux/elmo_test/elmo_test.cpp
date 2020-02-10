@@ -128,6 +128,8 @@ ethercatmain.h:439:extern int64       ec_DCtime;
 // initialize_elmo
 // control_elmo
 
+//// define
+////
 void simpletest(char *ifname)
 {
   int i, oloop, iloop, chk;
@@ -151,7 +153,9 @@ void simpletest(char *ifname)
       while(1)
       {
         int ret = 0;
+        // position control
         //uint8_t num_pdo = 0x08; // set control mode 0x6060 <=: 0x08 (cyclic synchronous position)
+        // torque control
         uint8_t num_pdo = 0x0a;  // set control mode 0x6060 <=: 0x0a (cyclic synchronous torque)
         ret += ec_SDOwrite(cnt, 0x6060, 0x00, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
@@ -163,7 +167,7 @@ void simpletest(char *ifname)
         int ret = 0;
         // set intrepolation time period 0x60c2:01 <=: 10
         // set intrepolation time period 0x60c2:02 <=: -4
-        //   time period ==> 10*10^-4 sec
+        //   time period ==> 10*10^-4 sec (1ms)
         uint8_t num_pdo = 10;
         ret += ec_SDOwrite(cnt, 0x60C2, 0x01, FALSE, sizeof(num_pdo), &num_pdo, EC_TIMEOUTRXM);
         if (ret == 1) break;
@@ -176,6 +180,7 @@ void simpletest(char *ifname)
         if (ret == 1) break;
       }
 #if 1
+      // just DEBUG
       printf("start-read\n");
       while(1)
       {
@@ -307,9 +312,12 @@ void simpletest(char *ifname)
 
         int prev_pos    = 0x7FFFFFFF;
         int initial_pos = 0x7FFFFFFF;
-        realtime_task::Context rt_context(REALTIME_PRIO_MAX, 500); //
+
+        // setting realtime-loop
+        realtime_task::Context rt_context(REALTIME_PRIO_MAX, 500); // 500us
+
         /* cyclic loop */
-        for(i = 1; i <= 200000; i++) { //// IN LOOP
+        for(i = 1; i <= 2000000; i++) { //// IN LOOP
           // set proceess output ????
           unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
           tx_buf[0] = 0x06; // control word
@@ -319,6 +327,7 @@ void simpletest(char *ifname)
           tx_buf[3] = 0x00; // ()
 
           unsigned char *rx_buf = (unsigned char *)(ec_slave[0].inputs);
+          //printf("rx_buf[0]=%X\n", rx_buf[0]);
           unsigned char r2 = (rx_buf[0] & 0x70) >> 4; // 5(quick stop, switch on disabled) or 3(always)
           unsigned char r1 = (rx_buf[0] & 0x0F);      // 7(op enable), 3(always)
           // Txbuf Control Word
@@ -457,7 +466,6 @@ void simpletest(char *ifname)
           {
 #if 0
             // Debug print
-            //printf("%X %X / %d %d", rr0, rr1, r2, r1);
             printf("Processdata cycle %4d, WKC %d , O:", i, wkc);
 
             int j
@@ -479,7 +487,8 @@ void simpletest(char *ifname)
           if( i % 3000 == 0 ) {
             rt_context.stat.reset();
           }
-          rt_context.wait();
+          rt_context.wait(); // real-time look (keep cycle)
+
         }  //// IN LOOP(end);
 
         inOP = FALSE;
