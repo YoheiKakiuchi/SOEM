@@ -76,9 +76,13 @@ public:
   {
     sched_param param;
     param.sched_priority = prio;
-    if( sched_setscheduler( 0, SCHED_FIFO, &param ) == -1 ) {
+    if( sched_setscheduler( 0, SCHED_FIFO, &param ) != -1 ) {
+      // start real time
+      fprintf(stderr, "start as realtime process\n");
+    } else {
       //fprintf(stderr, "error(%d)\n", errno);
-      throw std::runtime_error( "sched_setscheduler" );
+      //throw std::runtime_error( "sched_setscheduler" );
+      fprintf(stderr, "start as non-realtime process\n");
     }
     // 現在時刻
     clock_gettime( CLOCK_MONOTONIC, &m_t );
