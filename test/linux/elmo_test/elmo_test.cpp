@@ -235,7 +235,21 @@ void simpletest(char *ifname)
       // setting txpdo (device send)
       //uint16_t txpdo_lst[] = {0x1A0A, 0x1A0B, 0x1A0E, 0x1A13, 0x1A14, 0x1A15, 0x1A17, 0x1A1C};
       uint16_t txpdo_lst[] = {0x1A0A, 0x1A0B, 0x1A0E, 0x1A13, 0x1A1F,
-                              0x1A14, 0x1A15, 0x1A17, 0x1A19, 0x1A1D};
+                              //0x1A14, 0x1A15, 0x1A17, 0x1A19, 0x1A1D};
+                              0x1A1D, 0x1A14, 0x1A12, 0x1A18, 0x1A19 };
+      // SM3 inputs
+      //    addr b   index: sub bitl data_type    name
+      //  0 [0x0010.0] 0x6041:0x00 0x10 UNSIGNED16   Statusword
+      //  2 [0x0012.0] 0x6061:0x00 0x08 INTEGER8     Modes of operation display
+      //  3 [0x0013.0] 0x0000:0x00 0x08
+      //  4 [0x0014.0] 0x6064:0x00 0x20 INTEGER32    Position actual value
+      //  8 [0x0018.0] 0x6077:0x00 0x10 INTEGER16    Torque value
+      // 10 [0x001A.0] 0x6078:0x00 0x10 INTEGER16    Current actual value
+      // 12 [0x001C.0] 0x2205:0x01 0x10 INTEGER16    Analog input 1
+      // 14 [0x001E.0] 0x60B9:0x00 0x10 UNSIGNED16   Touch probe status
+      // 16 [0x0020.0] 0x6074:0x00 0x10 INTEGER16    Torque demand
+      // 18 [0x0022.0] 0x6079:0x00 0x20 UNSIGNED32   DC link voltage
+      // 22 [0x0026.0] 0x60F4:0x00 0x20 INTEGER32    Following error actual value
 
       int txpdo_num = sizeof(txpdo_lst) / sizeof(uint16_t);
       for (int idx = 0; idx < txpdo_num; idx++) {
@@ -317,7 +331,7 @@ void simpletest(char *ifname)
         realtime_task::Context rt_context(REALTIME_PRIO_MAX, 500); // 500us
 
         /* cyclic loop */
-        for(i = 1; i <= 2000000; i++) { //// IN LOOP
+        for(i = 1; i <= 20000000; i++) { //// IN LOOP
           // set proceess output ????
           unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
           tx_buf[0] = 0x06; // control word
@@ -368,7 +382,7 @@ void simpletest(char *ifname)
               }
               *tx_addr = rx_pos;
               kbd_input = -1;
-              short analog_val = *(short *)(rx_buf + 26);
+              short analog_val = *(short *)(rx_buf + 12);
               printf("a: %d -> %d\n", rx_pos, analog_val);
             }
             else if (kbd_input == 'd' || kbd_input == 'D') {
@@ -383,12 +397,12 @@ void simpletest(char *ifname)
               }
               *tx_addr = rx_pos;
               kbd_input = -1;
-              short analog_val = *(short *)(rx_buf + 26);
+              short analog_val = *(short *)(rx_buf + 12);
               printf("d: %d -> %d\n", rx_pos, analog_val);
             }
 #if 0
             {
-              int analog_val = (int) ( *(short *)(rx_buf + 26));
+              int analog_val = (int) ( *(short *)(rx_buf + 12));
               int *tx_addr =  (int *)(tx_buf+6);
               int rx_pos   = *(int *)(rx_buf+4);
 
@@ -429,27 +443,39 @@ void simpletest(char *ifname)
             // printf("%X %X ", rx_buf[0], rx_buf[1]);
           }
 
+          short torque_sent = 0;
+          short analog_val = 0;
           // calculate reference velocity and set it
           if (prev_pos != 0x7FFFFFFF) {
             int rx_pos   = *(int *)(rx_buf+4);
-            int mv = (rx_pos - prev_pos)*500;
-            int *tx_vel = (int *)(tx_buf+12);
-            *tx_vel = mv; // write velocity
+            //int mv = (rx_pos - prev_pos)*500;
+            //int *tx_vel = (int *)(tx_buf+12);
+            //*tx_vel = mv; // write velocity
             short *tx_tq = (short *)(tx_buf + 4);
 
-#if 0       // position control by torque feedback
+            //short analog_val = *(short *)(rx_buf + 12);
+            analog_val = *(short *)(rx_buf + 12) - 19;// offset value = 19
+            //printf("a:%d\n", analog_val);
+
+            // position control by torque feedback
+            int pos_moved = (rx_pos - prev_pos);
+            int pos_diff  = (rx_pos - initial_pos);
             prev_pos = rx_pos;
-            short  diff = -(rx_pos - initial_pos) / 10;
-
-            printf("i:%d, c:%d -> %d\n", initial_pos, rx_pos, diff);
-
-            *tx_tq = diff;
-#endif
-            // analog value to torque command
-            short analog_val = *(short *)(rx_buf + 26);
-
-            *tx_tq = -24*analog_val;
+            //printf("i:%d, c:%d -> %d\n", initial_pos, rx_pos, diff);
+#if 0
+            // Zero torque
+            *tx_tq = -24 * analog_val;
             //printf("i:%d, c:%d -> %d\n", initial_pos, rx_pos, analog_val);
+#endif
+            short tq = -24 * analog_val; // Zero torque
+            //short tq = 0;
+
+            //printf("i:%d, %d, %d\n", initial_pos, pos_diff, pos_moved);
+            tq += - pos_moved/5; // (バネ定数)
+            tq += - pos_diff/50; // 原点への復元力
+
+            *tx_tq = tq;
+            torque_sent = *tx_tq;
           } else {
             int rx_pos   = *(int *)(rx_buf+4);
 
@@ -461,6 +487,19 @@ void simpletest(char *ifname)
           // receive data
           wkc = ec_receive_processdata(EC_TIMEOUTRET);
 
+          //
+          {
+            int   rx_pos  = *(int *)  (rx_buf +  4); // Position actual value
+            short tq_val  = *(short *)(rx_buf +  8); // Torque value
+            short cur_val = *(short *)(rx_buf + 10); // Current actual value
+            short tq_dem  = *(short *)(rx_buf + 16); // Torque demand
+            unsigned int dc_vol = *(unsigned int *)(rx_buf + 18); //DC link voltage
+            int   fol_err = *(int *)  (rx_buf + 22); //Following error actual value
+
+            printf("%d,  %d, %d, %d,  %d, %d, %d, %d\n",
+                   i, rx_pos, tq_val, cur_val,
+                   tq_dem, torque_sent, analog_val, dc_vol);
+          }
           // error check
           if(wkc >= expectedWKC)
           {
