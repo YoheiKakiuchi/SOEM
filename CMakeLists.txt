@@ -101,3 +101,6 @@ if(BUILD_TESTS)
   add_subdirectory(test/linux/eepromtool)
   add_subdirectory(test/linux/simple_test)
 endif()
+
+## for JSK
+add_subdirectory(jsk_sample/torque_sensor)
