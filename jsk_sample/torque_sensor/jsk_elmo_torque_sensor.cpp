@@ -28,14 +28,28 @@ extern "C" {
 #define USE_RX_POS_FOR_FB 1
 
 //
-#define ZERO_TORQUE_CONTROL 0
+#define ZERO_TORQUE_CONTROL 1
 
-
+//
+// TORQUE SETTINGS
+//
+// Zero Torque
+//#define VELOCITY_GAIN (0.0)
+//#define POSITION_GAIN (0.0)
+// very soft
+//#define VELOCITY_GAIN (1.0/40)
+//#define POSITION_GAIN (1.0/2000)
+// soft
+#define VELOCITY_GAIN (1.0/20)
+#define POSITION_GAIN (1.0/500)
+// medium
 //#define VELOCITY_GAIN (1.0/10)
-//#define POSITION_GAIN (1.0/500)
-#define VELOCITY_GAIN (1.0/10)
-#define POSITION_GAIN (1.0/50)
+//#define POSITION_GAIN (1.0/50)
+// hard
+//#define VELOCITY_GAIN (1.0/5)
+//#define POSITION_GAIN (1.0/5)
 
+//
 #define TORQUE_GAIN 1.0
 #define EQUIVALENT_TORQUE_CONSTANT 20
 
@@ -52,7 +66,7 @@ uint8 currentgroup = 0;
 
 // realtime
 double rt_jitter;
-
+double rt_max_inter;
 /*
 ethercatmain.h:431:extern ecx_contextt  ecx_context;
 ethercatmain.h:433:extern ec_slavet   ec_slave[EC_MAXSLAVE];
@@ -387,6 +401,7 @@ void simpletest(char *ifname)
           }
 
           rt_jitter = rt_context.stat.get_norm();
+          rt_max_inter = rt_context.stat.get_max_interval();
           if( i % 3000 == 0 ) {
             rt_context.stat.reset();
           }
