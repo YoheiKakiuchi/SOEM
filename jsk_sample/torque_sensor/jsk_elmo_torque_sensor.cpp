@@ -21,6 +21,30 @@ extern "C" {
 #include "ethercat.h"
 }
 
+#pragma pack(2)
+typedef struct _rxpdo_buffer {
+  int32_t  target_position; //0x160F 0x607A s32 Target Position
+  int32_t  target_velocity; //0x161C 0x60FF s32 Target Velocity
+  int32_t  digital_output;  //0x161D 0x60FE:1 s32 Digital Output
+  int16_t  target_torque;   //0x160C 0x6071 s16 Target Torque
+  uint16_t control_word;    //0x160A 0x6040 u16 Control Word
+  uint8_t  mode_of_op;      //0x160B 0x6060 u8  Mode Of Operation
+} rxpdo_buffer;
+
+typedef struct _txpdo_buffer {
+  int32_t  position_actual; //0x1A0E 0x6064 32 Position actual value
+  int32_t  vecolity_actual; //0x1A11 0x606C 32 Velocity actual value
+  int32_t  aux_position;    //0x1A1E 0x20A0 32 Auxiliary position actual value
+  uint32_t digital_input;   //0x1A1C 0x60FD 32 Digital Inputs
+  int16_t  torque_actual;   //0x1A13 0x6077 16 Torque actual value
+  int16_t  current_actual;  //0x1A1F 0x6078 16 Current actual value
+  int16_t  analog_input;    //0x1A1D 0x2205 16 Analog input
+  int16_t  torque_demand;   //0x1A12 0x6074 16 Torque demand value
+  uint16_t status_word;     //0x1A0A 0x6041 16 Status word
+  uint8_t  mode_of_op;      //0x1A0B 0x6061 8 Mode of operation display
+} txpdo_buffer;
+#pragma pack(0)
+
 //
 #define USE_ESTIMATED_ANALOG_VAL 0
 
@@ -28,13 +52,13 @@ extern "C" {
 #define USE_RX_POS_FOR_FB 1
 
 //
-#define ZERO_TORQUE_CONTROL 0
+#define ZERO_TORQUE_CONTROL 1
 
 
-//#define VELOCITY_GAIN (1.0/10)
-//#define POSITION_GAIN (1.0/500)
 #define VELOCITY_GAIN (1.0/10)
-#define POSITION_GAIN (1.0/50)
+#define POSITION_GAIN (1.0/500)
+//#define VELOCITY_GAIN (1.0/10)
+//#define POSITION_GAIN (1.0/50)
 
 #define TORQUE_GAIN 1.0
 #define EQUIVALENT_TORQUE_CONSTANT 20
@@ -103,13 +127,29 @@ void simpletest(char *ifname)
       printf("%d slaves found and configured.\n", ec_slavecount);
 
       ///
-      jsk_elmo_settings(1); // for #1 device
+      jsk_elmo_settings_old(1); // for #1 device
 
       ///
-      jsk_elmo_PDO_mapping(1); // for #1 device
+      //jsk_elmo_PDO_mapping_old(1); // for #1 device
+      uint16_t rxpdo_set[] = {0x160F, 0x161C, 0x161D, 0x160C, 0x160A, 0x160B};
+      uint16_t txpdo_set[] = {0x1A0E, 0x1A11, 0x1A1E, 0x1A0C, 0x1A13,
+                              0x1A1F, 0x1A1D, 0x1A12, 0x1A0A, 0x1A0B };
+      jsk_elmo_PDO_mapping(1, rxpdo_set, sizeof(rxpdo_set)/sizeof(uint16_t),
+                           txpdo_set, sizeof(txpdo_set)/sizeof(uint16_t) ); // for #1 device
+
+      printf("size of rxpdo_buf = %d\n", sizeof(rxpdo_buffer));
+      printf("size of txpdo_buf = %d\n", sizeof(txpdo_buffer));
+
+      rxpdo_buffer _rbuf;
+      printf("  pos: target_position %d\n", (long)&(_rbuf.target_position) -  (long)&(_rbuf));
+      printf("  pos: target_vecocity %d\n", (long)&(_rbuf.target_velocity) -  (long)&_rbuf);
+      printf("  pos: digital_output  %d\n", (long)&(_rbuf.digital_output) -  (long)&_rbuf);
+      printf("  pos: target_torque   %d\n", (long)&(_rbuf.target_torque) -  (long)&_rbuf);
+      printf("  pos: control_word    %d\n", (long)&(_rbuf.control_word) -  (long)&_rbuf);
+      printf("  pos: mode_of_op      %d\n", (long)&(_rbuf.mode_of_op) -  (long)&_rbuf);
 
       osal_usleep(200*1000);// just for debug
-      ec_config_map(&IOmap);
+      ec_config_map(&IOmap); // OR overlap...
 
       osal_usleep(300*1000);// just for debug
       ec_configdc();
@@ -173,17 +213,18 @@ void simpletest(char *ifname)
         i = 0;
         while (1) { //// IN LOOP
           // set proceess output ????
-          unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
-          tx_buf[0] = 0x06; // control word
-          tx_buf[1] = 0x00; // control word
-          //tx_buf[2] = 0x08; // mode of operation (position)
-          tx_buf[2] = 0x0a; // mode of operation (torque)
-          tx_buf[3] = 0x00; // ()
+          //unsigned char *tx_buf = (unsigned char *)(ec_slave[0].outputs);
+          rxpdo_buffer *tx_obj = (rxpdo_buffer *)(ec_slave[0].outputs);
 
-          unsigned char *rx_buf = (unsigned char *)(ec_slave[0].inputs);
+          tx_obj->mode_of_op   = 0x0a;
+          tx_obj->control_word = 0x0006;
+
+          //unsigned char *rx_buf = (unsigned char *)(ec_slave[0].inputs);
+          txpdo_buffer *rx_obj  = (txpdo_buffer *)(ec_slave[0].inputs);
           //printf("rx_buf[0]=%X\n", rx_buf[0]);
-          unsigned char r2 = (rx_buf[0] & 0x70) >> 4; // 5(quick stop, switch on disabled) or 3(always)
-          unsigned char r1 = (rx_buf[0] & 0x0F);      // 7(op enable), 3(always)
+          uint8_t r2 = (rx_obj->status_word & 0x0070) >> 4;
+          uint8_t r1 = (rx_obj->status_word & 0x000F);
+
           // Txbuf Control Word
           // 3:Enable Op, 2:Quick Stp, 1:Enable Vt, 0:Switch On
           // r1
@@ -207,15 +248,17 @@ void simpletest(char *ifname)
           ///
           if (r2 == 3 && r1 == 7) { // in operation
             // (state) servo on
-            tx_buf[0] = 0x0F; // 1 1 1 1
+            //tx_buf[0] = 0x0F; // 1 1 1 1
+            tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x000F;
             // set reference torque from actual torque
             //tx_buf[4] = rx_buf[8]; // target torque
             //tx_buf[5] = rx_buf[9]; // target torque
 
-
             if (kbd_input == 'a' || kbd_input == 'A') {
-              int *tx_addr =  (int *)(tx_buf+6);
-              int rx_pos   = *(int *)(rx_buf+4);
+              //int *tx_addr =  (int *)(tx_buf+6);//
+              //int  rx_pos  = *(int *)(rx_buf+4);//pos
+              int *tx_addr = &(tx_obj->target_position);
+              int  rx_pos  = rx_obj->position_actual;
               if (kbd_input == 'a') {
                 rx_pos  += 20000;
                 ref_pos += 20000;
@@ -228,8 +271,10 @@ void simpletest(char *ifname)
             }
 
             else if (kbd_input == 'd' || kbd_input == 'D') {
-              int *tx_addr =  (int *)(tx_buf+6);
-              int rx_pos   = *(int *)(rx_buf+4);
+              //int *tx_addr =  (int *)(tx_buf+6);//
+              //int  rx_pos  = *(int *)(rx_buf+4);//pos
+              int *tx_addr = &(tx_obj->target_position);
+              int  rx_pos  = rx_obj->position_actual;
               if (kbd_input == 'd') {
                 rx_pos  -= 20000;
                 ref_pos -= 20000;
@@ -242,31 +287,38 @@ void simpletest(char *ifname)
             }
 
           } else if (r2 == 3 && r1 == 3) { // not in operation
-            tx_buf[0] = 0x07; // 0 1 1 1
+            //tx_buf[0] = 0x07; // 0 1 1 1
+            tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x0007;
             if (i > 1000) {
               // TO: servo on
-              tx_buf[0] = 0x0F; // 1 1 1 1
+              //tx_buf[0] = 0x0F; // 1 1 1 1
+              tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x000F;
             } else {
               // set reference position from actual position
-              tx_buf[6] = rx_buf[4];
-              tx_buf[7] = rx_buf[5];
-              tx_buf[8] = rx_buf[6];
-              tx_buf[9] = rx_buf[7];
+              //tx_buf[6] = rx_buf[4];
+              //tx_buf[7] = rx_buf[5];
+              //tx_buf[8] = rx_buf[6];
+              //tx_buf[9] = rx_buf[7];
+              tx_obj->target_position = rx_obj->position_actual;
             }
           } else if (r2 == 3 && r1 == 1) { // (ready to switch on but not switched on)
-            tx_buf[0] = 0x07; // 0 1 1 1 => Disable Op
+            //tx_buf[0] = 0x07; // 0 1 1 1 => Disable Op
+            tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x000F;
             // set reference position from actual position
-            tx_buf[6] = rx_buf[4];
-            tx_buf[7] = rx_buf[5];
-            tx_buf[8] = rx_buf[6];
-            tx_buf[9] = rx_buf[7];
+            //tx_buf[6] = rx_buf[4];
+            //tx_buf[7] = rx_buf[5];
+            //tx_buf[8] = rx_buf[6];
+            //tx_buf[9] = rx_buf[7];
+            tx_obj->target_position = rx_obj->position_actual;
           } else if (r2 == 5 && r1 == 2) {
-            tx_buf[0] = 0x06; // 0 1 1 0 => Switch Off
+            //tx_buf[0] = 0x06; // 0 1 1 0 => Switch Off
+            tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x0006;
             // set reference position from actual position
-            tx_buf[6] = rx_buf[4];
-            tx_buf[7] = rx_buf[5];
-            tx_buf[8] = rx_buf[6];
-            tx_buf[9] = rx_buf[7];
+            //tx_buf[6] = rx_buf[4];
+            //tx_buf[7] = rx_buf[5];
+            //tx_buf[8] = rx_buf[6];
+            //tx_buf[9] = rx_buf[7];
+            tx_obj->target_position = rx_obj->position_actual;
           } else {
             // printf("%X %X ", rx_buf[0], rx_buf[1]);
           }
@@ -278,16 +330,19 @@ void simpletest(char *ifname)
           short torque_sent = 0;
           short analog_val  = 0;
           if (prev_pos != 0x7FFFFFFF) {
-            int rx_pos  =   *(int *)(rx_buf+4);
-            int aux_pos = - *(int *)(rx_buf + 22); //Auxiliary position actual value
+            //int rx_pos  =   *(int *)(rx_buf+4);
+            //int aux_pos = - *(int *)(rx_buf + 22); //Auxiliary position actual value
+            int  rx_pos  = rx_obj->position_actual;
+            int aux_pos = - rx_obj->aux_position;
             {
               double tmp =  aux_pos * 32.0; // fix the difference of unit
               aux_pos = (int)tmp;
             }
 
-            short *tx_tq = (short *)(tx_buf + 4);
-
-            analog_val = *(short *)(rx_buf + 12) - 19; // offset value = 19 (measured offset)
+            //short *tx_tq = (short *)(tx_buf + 4);
+            short *tx_tq = &(tx_obj->target_torque);
+            //analog_val = *(short *)(rx_buf + 12) - 19; // offset value = 19 (measured offset)
+            analog_val = rx_obj->analog_input;
 
             // position control by torque feedback
 #if USE_RX_POS_FOR_FB
@@ -323,8 +378,10 @@ void simpletest(char *ifname)
             torque_sent = tq;
             printf("tq_an:\t%d\t%d\n", torque_sent, analog_val);
           } else {
-            int rx_pos  =   *(int *)(rx_buf+4);
-            int aux_pos = - *(int *)(rx_buf + 22); //Auxiliary position actual value
+            //int rx_pos  =   *(int *)(rx_buf+4);
+            //int aux_pos = - *(int *)(rx_buf + 22); //Auxiliary position actual value
+            int  rx_pos  = rx_obj->position_actual;
+            int aux_pos = - rx_obj->aux_position;
             {
               double tmp =  aux_pos * 32.0; // ????
               aux_pos = (int)tmp;
@@ -345,13 +402,20 @@ void simpletest(char *ifname)
 #if DEBUG
           // debug message
           {
-            int   rx_pos  = *(int *)  (rx_buf +  4); // Position actual value
-            short tq_val  = *(short *)(rx_buf +  8); // Torque value
-            short cur_val = *(short *)(rx_buf + 10); // Current actual value
-            short tq_dem  = *(short *)(rx_buf + 16); // Torque demand
+            //int   rx_pos  = *(int *)  (rx_buf +  4); // Position actual value
+            //short tq_val  = *(short *)(rx_buf +  8); // Torque value
+            //short cur_val = *(short *)(rx_buf + 10); // Current actual value
+            //short tq_dem  = *(short *)(rx_buf + 16); // Torque demand
             //unsigned int dc_vol = *(unsigned int *)(rx_buf + 18); //DC link voltage
-            int   fol_err = *(int *)  (rx_buf + 18); //Following error actual value
-            int   aux_pos = - *(int *)  (rx_buf + 22); //Auxiliary position actual value
+            //int   fol_err = *(int *)  (rx_buf + 18); //Following error actual value
+            //int   aux_pos = - *(int *)  (rx_buf + 22); //Auxiliary position actual value
+            int   rx_pos  = rx_obj->position_actual;
+            short tq_val  = rx_obj->torque_actual;
+            short cur_val = rx_obj->current_actual;
+            short tq_dem  = rx_obj->torque_demand;
+            //unsigned int dc_vol = *(unsigned int *)(rx_buf + 18); //DC link voltage
+            //int   fol_err = *(int *)  (rx_buf + 18); //Following error actual value
+            int   aux_pos = - rx_obj->aux_position;
             {
               double tmp =  aux_pos * 32.0; // ????
               aux_pos = (int)tmp;
