@@ -450,9 +450,9 @@ void simpletest(char *ifname)
             // error ??
           }
 
-          rt_jitter = rt_context.stat.get_norm();
+          rt_jitter = rt_context.statistics_get_norm();
           if( i % 3000 == 0 ) {
-            rt_context.stat.reset();
+            rt_context.statistics_reset();
           }
           rt_context.wait(); // real-time look (keep cycle)
 

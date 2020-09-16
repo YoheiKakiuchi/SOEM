@@ -109,11 +109,11 @@ void ethercat_loop (char *ifname)
   long counter = 0;
   realtime_task::Context rt_context(REALTIME_PRIO_MAX, REALTIME_CYCLE);
   while (true) {
-    jitter = rt_context.stat.get_norm();
-    max_interval = rt_context.stat.get_max_interval();
+    jitter = rt_context.statistics_get_norm();
+    max_interval = rt_context.statistics_get_max_interval();
 
     if( counter % 2000 == 0 ) {
-      rt_context.stat.reset();
+      rt_context.statistics_reset();
     }
     counter++;
     rt_context.wait(); // real-time look (keep cycle)
@@ -245,10 +245,10 @@ void ethercat_loop2 (char *ifname)
 
 
     // data process end
-    jitter = rt_context.stat.get_norm();
-    max_interval = rt_context.stat.get_max_interval();
+    jitter = rt_context.statistics_get_norm();
+    max_interval = rt_context.statistics_get_max_interval();
     if( counter % 1000 == 0 ) {
-      rt_context.stat.reset();
+      rt_context.statistics_reset();
     }
     counter++;
     rt_context.wait(); // real-time look (keep cycle)

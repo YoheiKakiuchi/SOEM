@@ -7,6 +7,11 @@
 #include <time.h>
 #include <sched.h>
 #include <errno.h>
+#include <string.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define NSEC_PER_SEC    1000000000L
 #define REALTIME_PRIO_MAX 99
@@ -70,10 +75,37 @@ class Context {
       m_t.tv_sec++;
     }
   }
+  int latency_fd;
 public:
   Context( const int prio, const unsigned long interval_us = 1000 )
-    : m_interval( interval_us * 1000 ), stat( interval_us )
+    : m_interval( interval_us * 1000 ), latency_fd(-1), _int_stat( interval_us )
   {
+    //
+    if (latency_fd < 0) {
+      struct stat st;
+      if( stat("/dev/cpu_dma_latency", &st) == 0 ) {
+        latency_fd = open("/dev/cpu_dma_latency", O_RDWR);
+        if (latency_fd != -1) {
+          int val = 0;
+          int ret;
+          ret = write(latency_fd, &val, 4);
+          if (ret == 0) {
+            fprintf(stderr, "setting /dev/cpu_dma_latency was failed ( %d : %s)\n",
+                    val, strerror(errno));
+            close(latency_fd);
+          } else {
+            fprintf(stderr, "/dev/cpu_dma_latency set to %d [us]\n", val);
+          }
+        } else {
+          fprintf(stderr, "faild to open /dev/cpu_dma_latency (%s)\n",
+                  strerror(errno));
+        }
+      } else {
+        fprintf(stderr, "There is no /dev/cpu_dma_latency (%s)\n",
+                strerror(errno));
+      }
+    }
+    //
     sched_param param;
     param.sched_priority = prio;
     if( sched_setscheduler( 0, SCHED_FIFO, &param ) != -1 ) {
@@ -89,16 +121,32 @@ public:
   }
   ~Context() {}
 
-  IntervalStatics stat;
+  IntervalStatics _int_stat;
 
   void start() {
     clock_gettime( CLOCK_MONOTONIC, &m_t );
-    stat.start();
+    _int_stat.start();
   }
   void wait() {
     _increment_t();
     clock_nanosleep( CLOCK_MONOTONIC, TIMER_ABSTIME, &m_t, NULL );
-    stat.sync();
+    _int_stat.sync();
+  }
+
+  void statistics_sync () {
+    _int_stat.sync();
+  }
+  void statistics_start () {
+    _int_stat.start();
+  }
+  void statistics_reset () {
+    _int_stat.reset();
+  }
+  double statistics_get_norm () {
+    return _int_stat.get_norm();
+  }
+  double statistics_get_max_interval () {
+    return _int_stat.get_max_interval();
   }
 };
 } // namespace
