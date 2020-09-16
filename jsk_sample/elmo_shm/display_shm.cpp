@@ -114,6 +114,12 @@ void *display_thread_fun (void *arg)
 
   while( !(*stop_flag) ) {
     // display
+    fprintf(stderr, "jitter: %4.2f [us] / max_interval: %6.4f [ms]\n", jitter, max_interval/1000.0);
+    rt_context.wait();
+  }
+#if 0
+  while( !(*stop_flag) ) {
+    // display
     clear_screen();
     fprintf(stderr, "jitter: %4.2f [us] / max_interval: %6.4f [ms]\n", jitter, max_interval/1000.0);
     //int shm_idx;
@@ -188,5 +194,6 @@ void *display_thread_fun (void *arg)
     }
     rt_context.wait();
   }
+#endif
   //
 }
