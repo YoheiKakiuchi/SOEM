@@ -85,6 +85,7 @@ ethercatmain.h:437:extern ec_groupt   ec_group[EC_MAXGROUP];
 ethercatmain.h:438:extern boolean     EcatError;
 ethercatmain.h:439:extern int64       ec_DCtime;
 */
+
 //
 // initialize_elmo
 // control_elmo
@@ -224,7 +225,7 @@ void simpletest(char *ifname)
           //printf("rx_buf[0]=%X\n", rx_buf[0]);
           uint8_t r2 = (rx_obj->status_word & 0x0070) >> 4;
           uint8_t r1 = (rx_obj->status_word & 0x000F);
-
+          //printf("rx_obj->status_word = 0x%04X\n", rx_obj->status_word);
           // Txbuf Control Word
           // 3:Enable Op, 2:Quick Stp, 1:Enable Vt, 0:Switch On
           // r1
@@ -321,6 +322,7 @@ void simpletest(char *ifname)
             tx_obj->target_position = rx_obj->position_actual;
           } else {
             // printf("%X %X ", rx_buf[0], rx_buf[1]);
+            //printf("st 3(unknown)\n");
           }
 
           //
@@ -450,9 +452,9 @@ void simpletest(char *ifname)
             // error ??
           }
 
-          rt_jitter = rt_context.stat.get_norm();
+          rt_jitter = rt_context.statistics_get_norm();
           if( i % 3000 == 0 ) {
-            rt_context.stat.reset();
+            rt_context.statistics_reset();
           }
           rt_context.wait(); // real-time look (keep cycle)
 

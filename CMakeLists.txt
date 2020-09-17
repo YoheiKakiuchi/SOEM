@@ -104,3 +104,4 @@ endif()
 
 ## for JSK
 add_subdirectory(jsk_sample/torque_sensor)
+add_subdirectory(jsk_sample/elmo_shm)

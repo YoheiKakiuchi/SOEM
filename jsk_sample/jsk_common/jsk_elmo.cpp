@@ -2,10 +2,12 @@ extern "C" {
 #include "ethercat.h"
 }
 #include "jsk_elmo.h"
-#include "stdio.h"
 
-int jsk_elmo_settings(int dev_no, uint8_t control_mode,
-                      int cycle_timeout, int aux_position, bool debug)
+int jsk_elmo_settings(int dev_no,
+                      uint8_t control_mode,
+                      int cycle_timeout, /* unit: 10us, e.g. cycle_timeout=200 => 2000us(2ms) */
+                      int aux_position,
+                      bool debug) /* debug print */
 {
   // SETTING : control mode
   while(1)  {
@@ -23,29 +25,29 @@ int jsk_elmo_settings(int dev_no, uint8_t control_mode,
   // SETTING : cycle timeout // servo may stop if there is no command within this time period. (just guess??)
   while(1) {
     int ret = 0;
-    // set intrepolation time period 0x60c2:01 <=: 20
-    // set intrepolation time period 0x60c2:02 <=: -4
-    //   time period ==> 20*10^-4 sec (2ms)
-    uint8_t tm_period1 = 20;
+    // set intrepolation time period 0x60c2:01 <=: 200
+    // set intrepolation time period 0x60c2:02 <=:  -5
+    //   time period ==> 200*10^-5 sec (2ms)
+    uint8_t tm_period1 = cycle_timeout;
     ret += ec_SDOwrite(dev_no, 0x60C2, 0x01, FALSE, sizeof(tm_period1), &tm_period1, EC_TIMEOUTRXM);
     if (ret == 1) break;
   }
   while(1) {
     int ret = 0;
-    int8_t tm_period2 = -4;
+    int8_t tm_period2 = -5;
     ret += ec_SDOwrite(dev_no, 0x60C2, 0x02, FALSE, sizeof(tm_period2), &tm_period2, EC_TIMEOUTTXM);
     if (ret == 1) break;
   }
 
   if (debug) {
-    printf("DB: start-read\n");
+    fprintf(stderr, "DB: start-read\n");
     while(1) {
       int ret = 0;
       int psize = 1;
       char val;
       ret += ec_SDOread (dev_no, 0x60C2, 0x02, FALSE, &psize, &val, EC_TIMEOUTRXM);
       if (ret == 1) {
-        printf("DB: 0x602C:2 -> %d\n", val);
+        fprintf(stderr, "DB: 0x602C:2 -> %d\n", val);
         break;
       }
     }
@@ -55,16 +57,27 @@ int jsk_elmo_settings(int dev_no, uint8_t control_mode,
       char val;
       ret += ec_SDOread (dev_no, 0x20B0, 0x00, FALSE, &psize, &val, EC_TIMEOUTRXM);
       if (ret == 1) {
-        printf("DB: 0x02B0:0 -> %d\n", val);
+        fprintf(stderr, "DB: 0x02B0:0 -> %d\n", val);
         break;
       }
     }
   }
+
   // TODO: using aux_position
   // SETTING (Auxiliary position)
+  /*
+    Object 0x20B0 : Socket Additional Function
+    Sub-index      / 9
+    Description    / Socket used for Additional Sensor 0x20A0 read out, CA[79]
+    Entry category / Mandatory
+    Access         / Read/Write
+    PDO mapping    / No
+    Value range    / 0...4
+    Default value  / 1
+  */
   while(1) {
     int ret = 0;
-    int setting = 2; ////
+    int setting = 2; // socket 2
     ret += ec_SDOwrite(dev_no, 0x20B0, 0x09, FALSE, sizeof(setting), &setting, EC_TIMEOUTTXM);
     if (ret == 1) break;
   }
@@ -76,7 +89,7 @@ int jsk_elmo_settings(int dev_no, uint8_t control_mode,
       int val;
       ret += ec_SDOread (dev_no, 0x20B0, 0x09, FALSE, &psize, &val, EC_TIMEOUTRXM);
       if (ret == 1) {
-        printf("DB: 0x02B0:9 -> %d\n", val);
+        fprintf(stderr, "DB: 0x02B0:9 -> %d\n", val);
         break;
       }
     }
@@ -84,138 +97,6 @@ int jsk_elmo_settings(int dev_no, uint8_t control_mode,
 
   return 0;
 }
-
-int jsk_elmo_settings_old(int dev_no)
-{
-  // SETTING : control mode
-  while(1)  {
-    int ret = 0;
-    // position control
-    //uint8_t num_pdo = 0x08; // set control mode 0x6060 <=: 0x08 (cyclic synchronous position)
-    // torque control
-    uint8_t ctl_mode = 0x0a;  // set control mode 0x6060 <=: 0x0a (cyclic synchronous torque)
-    ret += ec_SDOwrite(dev_no, 0x6060, 0x00, FALSE, sizeof(ctl_mode), &ctl_mode, EC_TIMEOUTRXM);
-    if (ret == 1) break;
-  }
-
-  // SETTING : cycle timeout // servo may stop if there is no command within this time period. (just guess??)
-  while(1) {
-    int ret = 0;
-    // set intrepolation time period 0x60c2:01 <=: 10
-    // set intrepolation time period 0x60c2:02 <=: -4
-    //   time period ==> 10*10^-4 sec (1ms)
-    //uint8_t tm_period1 = 10;
-    uint8_t tm_period1 = 5;
-    ret += ec_SDOwrite(dev_no, 0x60C2, 0x01, FALSE, sizeof(tm_period1), &tm_period1, EC_TIMEOUTRXM);
-    if (ret == 1) break;
-  }
-  while(1) {
-    int ret = 0;
-    int8_t tm_period2 = -4;
-    //int8_t tm_period2 = -1;
-    ret += ec_SDOwrite(dev_no, 0x60C2, 0x02, FALSE, sizeof(tm_period2), &tm_period2, EC_TIMEOUTTXM);
-    if (ret == 1) break;
-  }
-
-#if DEBUG
-  // just DEBUG
-  printf("DB: start-read\n");
-  while(1) {
-    int ret = 0;
-    int psize = 1;
-    char val;
-    ret += ec_SDOread (dev_no, 0x60C2, 0x02, FALSE, &psize, &val, EC_TIMEOUTRXM);
-    if (ret == 1) {
-      printf("DB: 0x602C:2 -> %d\n", val);
-      break;
-    }
-  }
-  while(1) {
-    int ret = 0;
-    int psize = 1;
-    char val;
-    ret += ec_SDOread (dev_no, 0x20B0, 0x00, FALSE, &psize, &val, EC_TIMEOUTRXM);
-    if (ret == 1) {
-      printf("DB: 0x02B0:0 -> %d\n", val);
-      break;
-    }
-  }
-#endif
-
-  // SETTING (Auxiliary position)
-  while(1) {
-    int ret = 0;
-    int setting = 2;
-    ret += ec_SDOwrite(dev_no, 0x20B0, 0x09, FALSE, sizeof(setting), &setting, EC_TIMEOUTTXM);
-    if (ret == 1) break;
-  }
-
-#if DEBUG
-  while(1) {
-    int ret = 0;
-    int psize = 4;
-    int val;
-    ret += ec_SDOread (dev_no, 0x20B0, 0x09, FALSE, &psize, &val, EC_TIMEOUTRXM);
-    if (ret == 1) {
-      printf("DB: 0x02B0:9 -> %d\n", val);
-      break;
-    }
-  }
-#endif
-
-  return 0;
-}
-
-/* RXPDO
-  (EtherCAT Application Manual p.21)
-0x160A 0x6040 u16 Control Word
-0x160B 0x6060 u8  Mode Of Operation
-0x160C 0x6071 s16 Target Torque
-0x160D 0x6072 16 Max. Torque
-0x160E 0x6073 16 Max. Current
-0x160F 0x607A s32 Target Position
-0x1610 0x607F 32 Max. Profile Velocity
-0x1611 0x6081 32 Profile Velocity
-0x1612 0x6082 32 End velocity
-0x1613 0x6083 32 Profile Acceleration
-0x1614 0x6084 32 Profile Deceleration
-0x1615 0x6087 16 Torque Slope
-0x1616 0x60B0 32 Position Offset
-0x1617 0x60B1 32 Velocity Offset
-0x1618 0x60B2 16 Torque Offset
-0x1619 0x60B8 16 Touch Probe Function
-0x161A 0x60C1:1 32 Interpolated data record (1)
-0x161B 0x60C1:2 32 Interpolated data record (2)
-0x161C 0x60FF s32 Target Velocity
-0x161D 0x60FE:1 s32 Digital Output
-0x161E 0x607F 8 Polarity
- */
-
-/* TXPDO
-   (EtherCAT Application Manual p.23)
-0x1A0A 0x6041 16 Status word
-0x1A0B 0x6061 8 Mode of operation display
-0x1A0C 0x6062 32 Position Demand [UU]
-0x1A0D 0x6063 32 Actual position [counts]
-0x1A0E 0x6064 32 Position actual value
-0x1A0F 0x6069 int32 Velocity sensor actual value [counts/sec]
-0x1A10 0x606B 32 Velocity demand [dev_no/sec]
-0x1A11 0x606C 32 Velocity actual value
-0x1A12 0x6074 16 Torque demand value
-0x1A13 0x6077 16 Torque actual value
-0x1A14 0x60B9 16 Touch Probe status
-0x1A15 0x60BA 32 Touch Probe Pos1 Positive
-0x1A16 0x60BB 32 Touch Probe Pos1 Negative
-0x1A17 0x60BC 32 Touch Probe Pos 2 Positive
-0x1A18 0x6079 32 DC link circuit voltage
-0x1A19 0x60F4 32 Position Following error
-0x1A1A 0x60FA 32 Control Effort [cnt/sec]
-0x1A1B 0x60FC 32 Position Demand Value [cnt]
-0x1A1C 0x60FD 32 Digital Inputs
-0x1A1D 0x2205 16 Analog input
-0x1A1E 0x20A0 32 Auxiliary position actual value
-0x1A1F 0x6078 16 Current actual value
- */
 
 int jsk_elmo_PDO_mapping(int dev_no, uint16_t *rxpdo_list, int rxpdo_num,
                          uint16_t *txpdo_list, int txpdo_num)
@@ -287,7 +168,85 @@ int jsk_elmo_PDO_mapping(int dev_no, uint16_t *rxpdo_list, int rxpdo_num,
   return 0;
 }
 
+/* deprecated */
+int jsk_elmo_settings_old(int dev_no)
+{
+  // SETTING : control mode
+  while(1)  {
+    int ret = 0;
+    // position control
+    //uint8_t num_pdo = 0x08; // set control mode 0x6060 <=: 0x08 (cyclic synchronous position)
+    // torque control
+    uint8_t ctl_mode = 0x0a;  // set control mode 0x6060 <=: 0x0a (cyclic synchronous torque)
+    ret += ec_SDOwrite(dev_no, 0x6060, 0x00, FALSE, sizeof(ctl_mode), &ctl_mode, EC_TIMEOUTRXM);
+    if (ret == 1) break;
+  }
 
+  // SETTING : cycle timeout // servo may stop if there is no command within this time period. (just guess??)
+  while(1) {
+    int ret = 0;
+    // set intrepolation time period 0x60c2:01 <=: 10
+    // set intrepolation time period 0x60c2:02 <=: -4
+    //   time period ==> 100*10^-5 sec (1ms)
+    uint8_t tm_period1 = 50;
+    ret += ec_SDOwrite(dev_no, 0x60C2, 0x01, FALSE, sizeof(tm_period1), &tm_period1, EC_TIMEOUTRXM);
+    if (ret == 1) break;
+  }
+  while(1) {
+    int ret = 0;
+    int8_t tm_period2 = -5;
+    ret += ec_SDOwrite(dev_no, 0x60C2, 0x02, FALSE, sizeof(tm_period2), &tm_period2, EC_TIMEOUTTXM);
+    if (ret == 1) break;
+  }
+
+#if DEBUG
+  // just DEBUG
+  fprintf(stderr, "DB: start-read\n");
+  while(1) {
+    int ret = 0;
+    int psize = 1;
+    char val;
+    ret += ec_SDOread (dev_no, 0x60C2, 0x02, FALSE, &psize, &val, EC_TIMEOUTRXM);
+    if (ret == 1) {
+      fprintf(stderr, "DB: 0x602C:2 -> %d\n", val);
+      break;
+    }
+  }
+  while(1) {
+    int ret = 0;
+    int psize = 1;
+    char val;
+    ret += ec_SDOread (dev_no, 0x20B0, 0x00, FALSE, &psize, &val, EC_TIMEOUTRXM);
+    if (ret == 1) {
+      fprintf(stderr, "DB: 0x02B0:0 -> %d\n", val);
+      break;
+    }
+  }
+#endif
+
+  // SETTING (Auxiliary position)
+  while(1) {
+    int ret = 0;
+    int setting = 2;
+    ret += ec_SDOwrite(dev_no, 0x20B0, 0x09, FALSE, sizeof(setting), &setting, EC_TIMEOUTTXM);
+    if (ret == 1) break;
+  }
+
+#if DEBUG
+  while(1) {
+    int ret = 0;
+    int psize = 4;
+    int val;
+    ret += ec_SDOread (dev_no, 0x20B0, 0x09, FALSE, &psize, &val, EC_TIMEOUTRXM);
+    if (ret == 1) {
+      fprintf(stderr, "DB: 0x02B0:9 -> %d\n", val);
+      break;
+    }
+  }
+#endif
+
+  return 0;
+}
 int jsk_elmo_PDO_mapping_old(int dev_no)
 {
   /*
