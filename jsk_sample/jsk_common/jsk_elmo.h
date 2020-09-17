@@ -58,7 +58,7 @@ extern int jsk_elmo_PDO_mapping(int dev_no, uint16_t *rxpdo_list, int rxpdo_num,
 0x1A1C 0x60FD 32 Digital Inputs
 0x1A1D 0x2205 16 Analog input
 0x1A1E 0x20A0 32 Auxiliary position actual value
-0x1A1F 0x6078 16 Current actual value
+0x1A1F 0x6078 16 Current actual value ( same as Torque actual value )
  */
 
 // deprecated

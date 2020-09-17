@@ -40,7 +40,7 @@ void *list_display_thread_fun (void *arg)
 #define COLUMN_NUM  12
 #define ROW_NUM      1
 #define COLUMN_WIDTH 9
-#define ROW_WIDTH    5
+#define ROW_WIDTH    6
 
 inline void move_cursor_up(FILE* strm, int i)
 {
@@ -137,6 +137,8 @@ void *display_thread_fun (void *arg)
       next_row(print_strm);
       fprintf(print_strm, "     abs:");
       next_row(print_strm);
+      fprintf(print_strm, "     vel:");
+      next_row(print_strm);
       fprintf(print_strm, "     cur:");
       next_column(print_strm);
       for(int i = 0; i < COLUMN_NUM; i++) {
@@ -174,6 +176,10 @@ void *display_thread_fun (void *arg)
         }
         { // abs angle
           fprintf(print_strm, "%8.3f ", js->abs_angle);
+          next_row(print_strm);
+        }
+        { // cur velocity
+          fprintf(print_strm, "%8.3f ", js->cur_vel);
           next_row(print_strm);
         }
         { // current

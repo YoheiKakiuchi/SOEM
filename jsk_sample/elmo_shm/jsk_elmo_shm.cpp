@@ -101,6 +101,12 @@ double m1_jitter  = 0;
 double m1_max_int = 0;
 double m1_min_int = 0;
 
+// for jsk_single_axis settings
+#define MY_PI 3.141592653589793116
+#define INITIAL_ABSOLUTE_ORIGIN_COUNT 171059
+int absolute_origin_count;
+int encoder_origin_count;
+
 /*
 ethercatmain.h:431:extern ecx_contextt  ecx_context;
 ethercatmain.h:433:extern ec_slavet   ec_slave[EC_MAXSLAVE];
@@ -248,7 +254,28 @@ void ethercat_loop (char *ifname)
 
   ec_send_processdata();
   wkc = ec_receive_processdata(EC_TIMEOUTRET);
+  {
+    // initial data
+    txpdo_buffer *rx_obj = (txpdo_buffer *)(ec_slave[0].inputs);
+    rxpdo_buffer *tx_obj = (rxpdo_buffer *)(ec_slave[0].outputs);
+    for(int workerid = 1; workerid <= ec_slavecount ; workerid++) {
+      txpdo_buffer *a_rx_obj = & (rx_obj[workerid-1]);
+      rxpdo_buffer *a_tx_obj = & (tx_obj[workerid-1]);
+      joint_struct *jt = &(shm->joint[workerid-1]);
 
+      //
+      absolute_origin_count = INITIAL_ABSOLUTE_ORIGIN_COUNT;
+      double cur_abs = (((a_rx_obj->aux_position) - absolute_origin_count) * MY_PI) / 524288;
+      jt->abs_angle  = cur_abs;
+
+      // jt->abs_angle == jt->cur_angle
+      int  cur_count = (a_rx_obj->position_actual);
+      // ((cur_count - encoder_origin_count) * MY_PI) / 460800 == cur_abs
+      //
+      encoder_origin_count = cur_count - (int)((cur_abs * 460800) / MY_PI);
+      jt->cur_angle  = (((a_rx_obj->position_actual) - encoder_origin_count) * MY_PI) / 460800;
+    }
+  }
   // Debug
   realtime_task::IntervalStatics m0(0);
   realtime_task::IntervalStatics m1(0);
@@ -377,11 +404,23 @@ void ethercat_loop (char *ifname)
       }
 #endif
       jt->servo_state[0] = (int)a_rx_obj->status_word;
+#if 0
       jt->cur_angle  = a_rx_obj->position_actual; // TODO: convert to real robot angle
       jt->cur_vel    = a_rx_obj->velocity_actual; // TODO: convert to real robot velocity
       jt->abs_angle  = a_rx_obj->aux_position;    // TODO: convert to real robot abs angle
       jt->cur_torque = a_rx_obj->torque_actual;   // TODO: convert to real robot torque
       jt->motor_current[0] = a_rx_obj->current_actual; // TODO: convert to real robot velocity
+#endif
+      // setting for jsk_jaxon_single_axis
+      // 2000 cnt/rev [motor encoder] / gear ratio 460.8
+      // jt->cur_angle  = ((a_rx_obj->position_actual) * MY_PI) / 460800;
+      jt->cur_angle  = (((a_rx_obj->position_actual) - encoder_origin_count) * MY_PI) / 460800;
+      jt->cur_vel    = ((a_rx_obj->velocity_actual) * MY_PI) / 460800; //
+      // 22bit abs
+      //jt->abs_angle  = ((a_rx_obj->aux_position) * MY_PI) / 524288;
+      jt->abs_angle  = (((a_rx_obj->aux_position) - absolute_origin_count) * MY_PI) / 524288;
+      jt->cur_torque = a_rx_obj->torque_actual;   // TODO: convert to real robot torque
+      jt->motor_current[0] = ((a_rx_obj->current_actual) * 3.0) / 1000; // current [A] / rated 3 [A] 
 
       // TODO: change control mode while operation
       //a_tx_obj->mode_of_op = jt->controlmode;
@@ -392,12 +431,14 @@ void ethercat_loop (char *ifname)
         double actual_ref = jt->ref_angle;
         if (jt->interpolation_counter > 0) {
           actual_ref = jt->prev_angle + ((jt->ref_angle - jt->prev_angle) / jt->interpolation_counter);
+          jt->prev_angle = actual_ref;
           jt->interpolation_counter--;
         }
 
-        double diff_ang = (jt->cur_angle - jt->ref_angle);
+        //double diff_ang = (jt->cur_angle - jt->ref_angle);
+        double diff_ang = (jt->cur_angle - actual_ref);
         double vel      = (jt->cur_vel);
-        a_tx_obj->target_torque = - diff_ang/10.0;
+        a_tx_obj->target_torque = - (diff_ang * 100000.0) - (vel * 1000.0);
       }
       // END: single joint process
     }
