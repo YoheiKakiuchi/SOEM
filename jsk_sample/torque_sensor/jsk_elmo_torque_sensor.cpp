@@ -85,6 +85,7 @@ ethercatmain.h:437:extern ec_groupt   ec_group[EC_MAXGROUP];
 ethercatmain.h:438:extern boolean     EcatError;
 ethercatmain.h:439:extern int64       ec_DCtime;
 */
+
 //
 // initialize_elmo
 // control_elmo
@@ -224,7 +225,7 @@ void simpletest(char *ifname)
           //printf("rx_buf[0]=%X\n", rx_buf[0]);
           uint8_t r2 = (rx_obj->status_word & 0x0070) >> 4;
           uint8_t r1 = (rx_obj->status_word & 0x000F);
-          printf("rx_obj->status_word = 0x%04X\n", rx_obj->status_word);
+          //printf("rx_obj->status_word = 0x%04X\n", rx_obj->status_word);
           // Txbuf Control Word
           // 3:Enable Op, 2:Quick Stp, 1:Enable Vt, 0:Switch On
           // r1
@@ -247,7 +248,6 @@ void simpletest(char *ifname)
           ///
           ///
           if (r2 == 3 && r1 == 7) { // in operation
-            printf("st op\n");
             // (state) servo on
             //tx_buf[0] = 0x0F; // 1 1 1 1
             tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x000F;
@@ -288,7 +288,6 @@ void simpletest(char *ifname)
             }
 
           } else if (r2 == 3 && r1 == 3) { // not in operation
-            printf("st 0\n");
             //tx_buf[0] = 0x07; // 0 1 1 1
             tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x0007;
             if (i > 1000) {
@@ -304,7 +303,6 @@ void simpletest(char *ifname)
               tx_obj->target_position = rx_obj->position_actual;
             }
           } else if (r2 == 3 && r1 == 1) { // (ready to switch on but not switched on)
-            printf("st 1\n");
             //tx_buf[0] = 0x07; // 0 1 1 1 => Disable Op
             tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x000F;
             // set reference position from actual position
@@ -314,7 +312,6 @@ void simpletest(char *ifname)
             //tx_buf[9] = rx_buf[7];
             tx_obj->target_position = rx_obj->position_actual;
           } else if (r2 == 5 && r1 == 2) {
-            printf("st 2\n");
             //tx_buf[0] = 0x06; // 0 1 1 0 => Switch Off
             tx_obj->control_word = (tx_obj->control_word & 0xFF00) | 0x0006;
             // set reference position from actual position
@@ -325,7 +322,7 @@ void simpletest(char *ifname)
             tx_obj->target_position = rx_obj->position_actual;
           } else {
             // printf("%X %X ", rx_buf[0], rx_buf[1]);
-            printf("st 3(unknown)\n");
+            //printf("st 3(unknown)\n");
           }
 
           //
