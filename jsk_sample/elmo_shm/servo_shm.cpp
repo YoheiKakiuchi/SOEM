@@ -1,6 +1,7 @@
 #include "servo_shm.h"
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
 
 void *set_shared_memory(key_t _key, size_t _size)
 {
@@ -25,13 +26,13 @@ void *set_shared_memory(key_t _key, size_t _size)
     err    = errno;
   }
   if(shm_id == -1) {
-    fprintf(stderr, "shmget failed, key=%d, size=%d, errno=%d\n", key, size, err);
+    fprintf(stderr, "shmget failed, key=%d, size=%d, errno=%d (%s)\n", key, size, err, strerror(err));
     return NULL;
   }
   ptr = (struct shared_data *)shmat(shm_id, (void *)0, 0);
   if(ptr == (void *)-1) {
     int err = errno;
-    fprintf(stderr, "shmget failed, key=%d, size=%d, shm_id=%d, errno=%d\n", key, size, shm_id, err);
+    fprintf(stderr, "shmget failed, key=%d, size=%d, shm_id=%d, errno=%d (%s)\n", key, size, shm_id, err, strerror(err));
     return NULL;
   }
   //fprintf(stderr, "shmget ok, size=%d\n", size);

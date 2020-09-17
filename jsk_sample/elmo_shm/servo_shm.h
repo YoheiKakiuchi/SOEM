@@ -10,7 +10,11 @@
 #define MAX_IMU_NUM      2
 #define MAX_FSENSOR_NUM  4
 
-enum {SERVO_FREE, SERVO_PDSERVO}; //
+#define SERVOMODE_FREE 8
+#define SERVOMODE_POSITION 0
+#define SERVOMODE_ABSPOSITION_CURRENT 1
+#define SERVOMODE_POSITION_TORQUE 2
+#define SERVOMODE_POSITION_FFTORQUE 3
 
 typedef struct _joint_struct {
   /* info */
@@ -21,6 +25,12 @@ typedef struct _joint_struct {
   float cur_vel;
   float pgain;
   float dgain;
+
+  float ref_torque;
+  float cur_torque;
+  float torque_pgain;
+  float torque_dgain;
+  float subgain[4];
 
   int   motor_num;
   float motor_temp[MAX_MOTOR_NUM];
@@ -38,6 +48,14 @@ typedef struct _joint_struct {
   int joint_offset;
   float prev_angle;
   int interpolation_counter;
+
+  unsigned short torque_coef_current;
+  unsigned short torque_coef_inertia;
+  unsigned short torque_coef_coulombfric;
+  unsigned short torque_coef_viscousfric;
+
+  char is_servo_on;
+  char controlmode;
 
   /* cmd */
   char servo_on;

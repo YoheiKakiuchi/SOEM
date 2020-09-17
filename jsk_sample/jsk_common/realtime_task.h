@@ -25,9 +25,11 @@ class IntervalStatics {
   double n;
   double norm2;
   double max_interval; // u_sec
+  double min_interval; // u_sec
 public:
   IntervalStatics( const unsigned long interval_us ) :
-    m_interval( interval_us ), n( 0.0 ), norm2( 0.0 ), max_interval( 0.0 )  {
+    m_interval( interval_us ), n( 0.0 ), norm2( 0.0 ),
+    max_interval( - NSEC_PER_SEC ), min_interval( NSEC_PER_SEC ) {
     clock_gettime( CLOCK_MONOTONIC, &m_t );
   }
   void sync() {
@@ -36,6 +38,7 @@ public:
 
     const double measured_interval = ((n_t.tv_sec - m_t.tv_sec)*NSEC_PER_SEC + (n_t.tv_nsec - m_t.tv_nsec))/1000.0;
     if (measured_interval > max_interval) max_interval = measured_interval;
+    if (measured_interval < min_interval) min_interval = measured_interval;
     // 前フレームの時刻として保存
     m_t.tv_sec  = n_t.tv_sec;
     m_t.tv_nsec = n_t.tv_nsec;
@@ -48,20 +51,26 @@ public:
     n = next_n;
     norm2 = next_norm2;
   }
-  void start() {
+  void start(bool _reset = true) {
     clock_gettime( CLOCK_MONOTONIC, &m_t );
-    reset();
+    if (_reset) {
+      reset();
+    }
   }
   void reset() {
     n = 0.0;
     norm2 = 0.0;
-    max_interval = 0.0;
+    max_interval = - NSEC_PER_SEC;
+    min_interval = NSEC_PER_SEC;
   }
   double get_norm() {
     return sqrt( norm2 );
   }
   double get_max_interval () {
     return max_interval;
+  }
+  double get_min_interval () {
+    return min_interval;
   }
 };
 
@@ -80,7 +89,7 @@ public:
   Context( const int prio, const unsigned long interval_us = 1000 )
     : m_interval( interval_us * 1000 ), latency_fd(-1), _int_stat( interval_us )
   {
-    //
+    // see cyclictest in rt-tests
     if (latency_fd < 0) {
       struct stat st;
       if( stat("/dev/cpu_dma_latency", &st) == 0 ) {
@@ -90,7 +99,7 @@ public:
           int ret;
           ret = write(latency_fd, &val, 4);
           if (ret == 0) {
-            fprintf(stderr, "setting /dev/cpu_dma_latency was failed ( %d : %s)\n",
+            fprintf(stderr, "setting /dev/cpu_dma_latency was failed (%d : %s)\n",
                     val, strerror(errno));
             close(latency_fd);
           } else {
